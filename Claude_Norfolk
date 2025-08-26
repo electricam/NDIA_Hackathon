@@ -1,0 +1,1201 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  MapPin, 
+  Shield, 
+  AlertTriangle, 
+  Target, 
+  Activity, 
+  Zap, 
+  Droplets, 
+  Radio,
+  Play,
+  Pause,
+  Search,
+  Settings,
+  HelpCircle,
+  ChevronRight,
+  Eye,
+  RotateCcw,
+  Filter,
+  Bell,
+  Wifi,
+  Database
+} from 'lucide-react';
+
+const NorfolkCIPDashboard = () => {
+  const [currentTab, setCurrentTab] = useState('Infrastructure Map');
+  const [isScanning, setIsScanning] = useState(true);
+  const [scanProgress, setScanProgress] = useState(16);
+  const [mapLayers, setMapLayers] = useState({
+    water: true,
+    power: true,
+    comms: true,
+    bases: true
+  });
+  const [selectedAsset, setSelectedAsset] = useState('All Assets');
+  const [shodanResults, setShodanResults] = useState([]);
+  const [isLoadingShodan, setIsLoadingShodan] = useState(false);
+  const [mapLoadingState, setMapLoadingState] = useState('loaded');
+
+  // Enhanced infrastructure data with accurate Norfolk coordinates
+  const infrastructureAssets = [
+    { 
+      id: 'nsn', 
+      name: 'Naval Station Norfolk', 
+      type: 'base', 
+      risk: 'high', 
+      lat: 36.9467, 
+      lng: -76.3284, 
+      status: 'monitored',
+      description: 'World\'s largest naval base',
+      protocols: ['Modbus', 'DNP3', 'HTTP']
+    },
+    { 
+      id: 'langley', 
+      name: 'Langley AFB', 
+      type: 'base', 
+      risk: 'medium', 
+      lat: 37.0826, 
+      lng: -76.3607, 
+      status: 'monitored',
+      description: 'Joint Base Langley-Eustis',
+      protocols: ['SCADA', 'HTTP', 'SSH']
+    },
+    { 
+      id: 'monroe', 
+      name: 'Fort Monroe', 
+      type: 'base', 
+      risk: 'low', 
+      lat: 37.0067, 
+      lng: -76.3081, 
+      status: 'monitored',
+      description: 'Historic Army base',
+      protocols: ['HTTP', 'SNMP']
+    },
+    { 
+      id: 'oceana', 
+      name: 'NAS Oceana', 
+      type: 'base', 
+      risk: 'medium', 
+      lat: 36.8206, 
+      lng: -76.0342, 
+      status: 'monitored',
+      description: 'Naval Air Station Oceana',
+      protocols: ['Modbus', 'HTTP']
+    },
+    { 
+      id: 'power1', 
+      name: 'Norfolk Substation A', 
+      type: 'power', 
+      risk: 'critical', 
+      lat: 36.8508, 
+      lng: -76.2859, 
+      status: 'alert',
+      description: 'Primary electrical substation',
+      protocols: ['Modbus TCP', 'DNP3', 'IEC 61850']
+    },
+    { 
+      id: 'power2', 
+      name: 'Hampton Substation', 
+      type: 'power', 
+      risk: 'medium', 
+      lat: 37.0298, 
+      lng: -76.3452, 
+      status: 'monitored',
+      description: 'Secondary distribution point',
+      protocols: ['Modbus', 'SCADA']
+    },
+    { 
+      id: 'water1', 
+      name: 'Norfolk WWTP', 
+      type: 'water', 
+      risk: 'high', 
+      lat: 36.8468, 
+      lng: -76.2951, 
+      status: 'warning',
+      description: 'Wastewater treatment facility',
+      protocols: ['SCADA', 'Modbus', 'HTTP']
+    },
+    { 
+      id: 'water2', 
+      name: 'Virginia Beach WWTP', 
+      type: 'water', 
+      risk: 'low', 
+      lat: 36.7793, 
+      lng: -75.9849, 
+      status: 'monitored',
+      description: 'Regional water treatment',
+      protocols: ['Modbus', 'DNP3']
+    },
+    { 
+      id: 'comm1', 
+      name: 'Norfolk Communications Hub', 
+      type: 'comms', 
+      risk: 'medium', 
+      lat: 36.8508, 
+      lng: -76.2859, 
+      status: 'monitored',
+      description: 'Primary communications relay',
+      protocols: ['HTTP', 'SNMP', 'SSH']
+    }
+  ];
+
+  const tabs = [
+    'Infrastructure Map',
+    'Dependency Graph', 
+    'Vulnerability Scan',
+    'Threat Priorities'
+  ];
+
+  const vulnerabilities = [
+    {
+      id: 1,
+      severity: 'Critical',
+      title: 'Unpatched Modbus Interface',
+      description: 'Exposed Modbus interface with default credentials',
+      asset: 'Norfolk Substation A',
+      cve: 'CVE-2023-1234',
+      aiScore: 9.2,
+      detected: '2024-01-15 14:23:42'
+    },
+    {
+      id: 2,
+      severity: 'High',
+      title: 'SCADA Authentication Bypass',
+      description: 'Weak authentication in water treatment SCADA',
+      asset: 'Norfolk WWTP',
+      cve: 'CVE-2023-5678',
+      aiScore: 8.7,
+      detected: '2024-01-15 13:45:21'
+    }
+  ];
+
+  const threatPriorities = [
+    {
+      id: 1,
+      risk: 9.6,
+      title: 'Naval Station Norfolk Power Grid Vulnerability',
+      description: 'Critical Modbus interfaces exposed on power systems serving Naval Station Norfolk',
+      impact: 'Primary Naval Operations Shutdown',
+      timeToImpact: '1-3 hours',
+      updated: '3 minutes ago'
+    },
+    {
+      id: 2,
+      risk: 9.1,
+      title: 'Norfolk Naval Shipyard Water System Breach',
+      description: 'Compromised SCADA systems at Norfolk Naval Shipyard water treatment facilities',
+      impact: 'Shipyard Operations',
+      timeToImpact: '2-4 hours',
+      updated: '8 minutes ago'
+    }
+  ];
+
+  // Shodan scanning function
+  const performShodanScan = async () => {
+    setIsLoadingShodan(true);
+    try {
+      const mockShodanResults = [
+        {
+          ip_str: '192.168.1.100',
+          port: 502,
+          transport: 'tcp',
+          product: 'Schneider Electric Modicon',
+          version: '2.1',
+          org: 'Norfolk Naval Base',
+          location: { city: 'Norfolk', country_name: 'United States' },
+          vulns: ['CVE-2023-1234'],
+          risk_score: 9.2
+        },
+        {
+          ip_str: '10.0.45.23',
+          port: 80,
+          transport: 'tcp',
+          product: 'Apache httpd',
+          version: '2.4.41',
+          org: 'City of Norfolk',
+          location: { city: 'Norfolk', country_name: 'United States' },
+          vulns: ['CVE-2023-5678'],
+          risk_score: 7.8
+        },
+        {
+          ip_str: '172.16.10.5',
+          port: 443,
+          transport: 'tcp',
+          product: 'nginx',
+          version: '1.18.0',
+          org: 'Hampton Roads Infrastructure',
+          location: { city: 'Norfolk', country_name: 'United States' },
+          vulns: [],
+          risk_score: 3.2
+        }
+      ];
+      
+      setShodanResults(mockShodanResults);
+    } catch (error) {
+      console.error('Shodan scan failed:', error);
+    } finally {
+      setIsLoadingShodan(false);
+    }
+  };
+
+  // Simulate real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isScanning) {
+        setScanProgress(prev => (prev + 1) % 100);
+        
+        if (Math.random() > 0.95) {
+          performShodanScan();
+        }
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isScanning]);
+
+  const handleLayerToggle = (layerType) => {
+    setMapLayers(prev => ({
+      ...prev,
+      [layerType]: !prev[layerType]
+    }));
+  };
+
+  const getRiskColor = (risk) => {
+    switch(risk) {
+      case 'critical': return 'bg-red-600';
+      case 'high': return 'bg-red-500';
+      case 'medium': return 'bg-yellow-500';
+      case 'low': return 'bg-green-500';
+      default: return 'bg-gray-400';
+    }
+  };
+
+  const getColorValue = (colorClass) => {
+    switch(colorClass) {
+      case 'red-600': return '#dc2626';
+      case 'red-500': return '#ef4444';
+      case 'yellow-500': return '#eab308';
+      case 'green-500': return '#22c55e';
+      default: return '#6b7280';
+    }
+  };
+
+  const getAssetIcon = (type) => {
+    switch(type) {
+      case 'base': return '🏛️';
+      case 'power': return '⚡';
+      case 'water': return '💧';
+      case 'comms': return '📡';
+      default: return '📍';
+    }
+  };
+
+  // Convert lat/lng to pixel coordinates for Norfolk area
+  const coordToPixel = (lat, lng, width = 800, height = 400) => {
+    const minLat = 36.6;
+    const maxLat = 37.2;
+    const minLng = -76.8;
+    const maxLng = -76.0;
+    
+    const x = ((lng - minLng) / (maxLng - minLng)) * width;
+    const y = height - ((lat - minLat) / (maxLat - minLat)) * height;
+    
+    return { x, y };
+  };
+
+  const renderInfrastructureMap = () => (
+    <div className="bg-white rounded-lg p-6 h-full">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-3">
+          <MapPin className="w-6 h-6 text-blue-600" />
+          <h3 className="text-lg font-semibold text-gray-900">Norfolk Regional Infrastructure Map</h3>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={mapLayers.bases}
+                onChange={() => handleLayerToggle('bases')}
+                className="sr-only"
+              />
+              <div className={`w-4 h-4 rounded ${mapLayers.bases ? 'bg-gray-600' : 'bg-gray-300'} flex items-center justify-center text-white text-xs`}>
+                🏛️
+              </div>
+              <span className="text-sm font-medium">Military Bases</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={mapLayers.power}
+                onChange={() => handleLayerToggle('power')}
+                className="sr-only"
+              />
+              <div className={`w-4 h-4 rounded-full ${mapLayers.power ? 'bg-yellow-500' : 'bg-gray-300'} flex items-center justify-center text-white text-xs`}>
+                ⚡
+              </div>
+              <span className="text-sm font-medium">Power Grid</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={mapLayers.water}
+                onChange={() => handleLayerToggle('water')}
+                className="sr-only"
+              />
+              <div className={`w-4 h-4 rounded-full ${mapLayers.water ? 'bg-blue-500' : 'bg-gray-300'} flex items-center justify-center text-white text-xs`}>
+                💧
+              </div>
+              <span className="text-sm font-medium">Water Systems</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={mapLayers.comms}
+                onChange={() => handleLayerToggle('comms')}
+                className="sr-only"
+              />
+              <div className={`w-4 h-4 rounded-full ${mapLayers.comms ? 'bg-purple-500' : 'bg-gray-300'} flex items-center justify-center text-white text-xs`}>
+                📡
+              </div>
+              <span className="text-sm font-medium">Communications</span>
+            </label>
+          </div>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input 
+              type="text"
+              placeholder="Search this area"
+              className="pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 bg-green-50 p-3 rounded-lg">
+          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <span className="text-sm font-medium text-green-800">Live Monitoring</span>
+          <span className="text-sm text-green-600">{infrastructureAssets.length} installations tracked</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={performShodanScan}
+            disabled={isLoadingShodan}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Database className="w-4 h-4" />
+            {isLoadingShodan ? 'Scanning...' : 'Shodan Scan'}
+          </button>
+          {shodanResults.length > 0 && (
+            <div className="text-sm text-gray-600">
+              Found {shodanResults.length} exposed services
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="relative rounded-lg overflow-hidden h-96 border bg-gradient-to-br from-blue-50 via-green-50 to-blue-100">
+        <svg className="w-full h-full" viewBox="0 0 800 400" style={{ background: 'linear-gradient(135deg, #dbeafe 0%, #dcfce7 50%, #dbeafe 100%)' }}>
+          <defs>
+            <pattern id="water" patternUnits="userSpaceOnUse" width="4" height="4">
+              <rect width="4" height="4" fill="#3b82f6" opacity="0.1"/>
+              <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke="#3b82f6" strokeWidth="0.5" opacity="0.3"/>
+            </pattern>
+          </defs>
+          
+          <path d="M 0,0 Q 200,50 400,0 L 800,0 L 800,120 Q 600,100 400,120 Q 200,140 0,120 Z" fill="url(#water)" stroke="#3b82f6" strokeWidth="1" opacity="0.6"/>
+          <ellipse cx="300" cy="180" rx="80" ry="40" fill="url(#water)" stroke="#3b82f6" strokeWidth="1" opacity="0.6"/>
+          <ellipse cx="500" cy="200" rx="60" ry="30" fill="url(#water)" stroke="#3b82f6" strokeWidth="1" opacity="0.6"/>
+          
+          <g stroke="#9ca3af" strokeWidth="2" opacity="0.4" fill="none">
+            <path d="M 0,200 L 800,200" strokeDasharray="5,5"/>
+            <path d="M 300,0 L 300,400"/>
+            <path d="M 500,100 L 500,300"/>
+          </g>
+          
+          {infrastructureAssets.map(asset => {
+            if (!mapLayers[asset.type] && asset.type !== 'base') return null;
+            if (!mapLayers.bases && asset.type === 'base') return null;
+            
+            const { x, y } = coordToPixel(asset.lat, asset.lng);
+            const iconColor = getColorValue(getRiskColor(asset.risk).replace('bg-', ''));
+            
+            return (
+              <g key={asset.id}>
+                {asset.type === 'base' ? (
+                  <rect 
+                    x={x - 12} 
+                    y={y - 12} 
+                    width="24" 
+                    height="24" 
+                    fill={iconColor}
+                    stroke="white"
+                    strokeWidth="3"
+                    rx="3"
+                    className="cursor-pointer hover:scale-110 transition-transform drop-shadow-lg"
+                    onClick={() => setSelectedAsset(asset.name)}
+                  />
+                ) : (
+                  <circle 
+                    cx={x} 
+                    cy={y} 
+                    r="10" 
+                    fill={iconColor}
+                    stroke="white"
+                    strokeWidth="3"
+                    className="cursor-pointer hover:scale-110 transition-transform drop-shadow-lg"
+                    onClick={() => setSelectedAsset(asset.name)}
+                  />
+                )}
+                
+                <text 
+                  x={x} 
+                  y={y + 4} 
+                  textAnchor="middle" 
+                  fontSize="12" 
+                  fill="white" 
+                  className="pointer-events-none font-bold"
+                >
+                  {getAssetIcon(asset.type)}
+                </text>
+                
+                {(asset.risk === 'critical' || asset.risk === 'high') && (
+                  <circle 
+                    cx={x} 
+                    cy={y} 
+                    r="15" 
+                    fill="none" 
+                    stroke={asset.risk === 'critical' ? '#dc2626' : '#ef4444'}
+                    strokeWidth="2" 
+                    opacity="0.6"
+                    className="animate-ping"
+                  />
+                )}
+              </g>
+            );
+          })}
+          
+          <g stroke="#ef4444" strokeWidth="1" opacity="0.3" fill="none" strokeDasharray="2,2">
+            <line x1="300" y1="180" x2="250" y2="220"/>
+            <line x1="300" y1="180" x2="280" y2="200"/>
+            <line x1="480" y1="120" x2="520" y2="160"/>
+          </g>
+          
+          <g fill="#374151" fontSize="12" fontWeight="bold">
+            <text x="50" y="30">Chesapeake Bay</text>
+            <text x="280" y="50">Hampton Roads</text>
+            <text x="30" y="350">Norfolk</text>
+            <text x="450" y="350">Virginia Beach</text>
+            <text x="150" y="150">Portsmouth</text>
+            <text x="550" y="180">Hampton</text>
+          </g>
+          
+          <g transform="translate(20, 360)">
+            <line x1="0" y1="0" x2="50" y2="0" stroke="#374151" strokeWidth="2"/>
+            <line x1="0" y1="-3" x2="0" y2="3" stroke="#374151" strokeWidth="2"/>
+            <line x1="50" y1="-3" x2="50" y2="3" stroke="#374151" strokeWidth="2"/>
+            <text x="25" y="15" textAnchor="middle" fontSize="10" fill="#374151">~10 km</text>
+          </g>
+          
+          <g transform="translate(750, 50)">
+            <path d="M 0,-15 L -8,15 L 0,10 L 8,15 Z" fill="#374151"/>
+            <text x="0" y="25" textAnchor="middle" fontSize="10" fill="#374151" fontWeight="bold">N</text>
+          </g>
+        </svg>
+
+        <div className="absolute top-4 left-4 bg-white bg-opacity-95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border">
+          <div className="flex items-center gap-2 text-sm">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span className="font-semibold text-green-800">Map Ready</span>
+            <span className="text-gray-600">|</span>
+            <span className="text-gray-700">Norfolk Infrastructure</span>
+          </div>
+        </div>
+
+        <div className="absolute bottom-4 left-4 bg-white bg-opacity-95 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg border">
+          <div className="text-xs text-gray-700 space-y-1">
+            <div className="flex items-center gap-2">
+              <span>📍</span>
+              <span className="font-medium">{infrastructureAssets.filter(a => 
+                (mapLayers[a.type] || (a.type === 'base' && mapLayers.bases))
+              ).length} assets visible</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>🎯</span>
+              <span>Hampton Roads Region</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>🔍</span>
+              <span>Click assets for details</span>
+            </div>
+          </div>
+        </div>
+
+        {selectedAsset !== 'All Assets' && (
+          <div className="absolute top-4 right-4 bg-white bg-opacity-95 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg border max-w-xs">
+            {(() => {
+              const asset = infrastructureAssets.find(a => a.name === selectedAsset);
+              if (!asset) return null;
+              return (
+                <div className="text-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">{getAssetIcon(asset.type)}</span>
+                    <span className="font-semibold">{asset.name}</span>
+                  </div>
+                  <div className="text-xs text-gray-600 mb-2">{asset.description}</div>
+                  <div className="flex gap-2">
+                    <span className={`px-2 py-1 rounded-full text-xs text-white ${getRiskColor(asset.risk)}`}>
+                      {asset.risk.toUpperCase()}
+                    </span>
+                    <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">
+                      {asset.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Protocols: {asset.protocols.join(', ')}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+        <div className="flex justify-between items-start">
+          <div>
+            <h4 className="font-semibold mb-3">Infrastructure Types</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-gray-600 rounded flex items-center justify-center text-white text-xs">🏛️</div>
+                <span className="text-sm">Military Bases</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <span className="text-sm">Power Infrastructure</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <span className="text-sm">Water Systems</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                <span className="text-sm">Communications</span>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-3">Risk Levels</h4>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-red-600"></div>
+                <span className="text-sm">Critical Risk</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <span className="text-sm">High Risk</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <span className="text-sm">Medium Risk</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-sm">Low Risk</span>
+              </div>
+            </div>
+          </div>
+
+          {shodanResults.length > 0 && (
+            <div>
+              <h4 className="font-semibold mb-3">Shodan Results</h4>
+              <div className="space-y-2">
+                {shodanResults.slice(0, 3).map((result, index) => (
+                  <div key={index} className="text-xs bg-white p-2 rounded border">
+                    <div className="font-mono">{result.ip_str}:{result.port}</div>
+                    <div className="text-gray-600">{result.product}</div>
+                    <div className={`text-xs ${result.risk_score > 8 ? 'text-red-600' : result.risk_score > 5 ? 'text-yellow-600' : 'text-green-600'}`}>
+                      Risk: {result.risk_score}/10
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDependencyGraph = () => (
+    <div className="bg-white rounded-lg p-6 h-full">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-3">
+          <Activity className="w-6 h-6 text-blue-600" />
+          <h3 className="text-lg font-semibold text-gray-900">Infrastructure Dependency Network</h3>
+        </div>
+        <div className="flex items-center gap-3">
+          <select 
+            value={selectedAsset} 
+            onChange={(e) => setSelectedAsset(e.target.value)}
+            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option>All Assets</option>
+            <option>Naval Station Norfolk</option>
+            <option>Langley AFB</option>
+            <option>Critical Infrastructure Only</option>
+          </select>
+          <button className="p-2 hover:bg-gray-100 rounded-lg">
+            <Search className="w-4 h-4" />
+          </button>
+          <button className="p-2 hover:bg-gray-100 rounded-lg">
+            <Filter className="w-4 h-4" />
+          </button>
+          <button className="p-2 hover:bg-gray-100 rounded-lg">
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="relative bg-gray-50 rounded-lg h-96 overflow-hidden">
+        <svg className="w-full h-full" viewBox="0 0 800 400">
+          <g stroke="#ef4444" strokeWidth="1" opacity="0.7">
+            <line x1="200" y1="150" x2="300" y2="100" strokeDasharray="3,3" />
+            <line x1="200" y1="150" x2="350" y2="200" strokeDasharray="3,3" />
+            <line x1="300" y1="100" x2="450" y2="120" strokeDasharray="3,3" />
+            <line x1="350" y1="200" x2="500" y2="180" strokeDasharray="3,3" />
+            <line x1="450" y1="120" x2="600" y2="150" strokeDasharray="3,3" />
+          </g>
+
+          <g>
+            <polygon points="200,140 190,160 210,160" fill="#6b7280" stroke="#374151" strokeWidth="2"/>
+            <polygon points="150,240 140,260 160,260" fill="#6b7280" stroke="#374151" strokeWidth="2"/>
+            <polygon points="600,140 590,160 610,160" fill="#6b7280" stroke="#374151" strokeWidth="2"/>
+
+            <circle cx="300" cy="100" r="8" fill="#3b82f6" stroke="#1e40af" strokeWidth="2"/>
+            <circle cx="350" cy="200" r="8" fill="#ef4444" stroke="#dc2626" strokeWidth="2"/>
+            <circle cx="450" cy="120" r="8" fill="#eab308" stroke="#ca8a04" strokeWidth="2"/>
+            <circle cx="500" cy="180" r="8" fill="#8b5cf6" stroke="#7c3aed" strokeWidth="2"/>
+          </g>
+
+          <g fill="#374151" fontSize="10" textAnchor="middle">
+            <text x="200" y="175">NSN</text>
+            <text x="150" y="275">LAF</text>
+            <text x="300" y="90">PWR-1</text>
+            <text x="350" y="190">PWR-2</text>
+            <text x="500" y="170">WAT-1</text>
+          </g>
+        </svg>
+
+        <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-lg max-w-xs">
+          <h4 className="font-semibold text-sm mb-2">Network Statistics</h4>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span>Total Nodes:</span>
+              <span className="font-mono">23</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Connections:</span>
+              <span className="font-mono">41</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Critical Paths:</span>
+              <span className="font-mono text-red-600">7</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderVulnerabilityScanning = () => (
+    <div className="bg-white rounded-lg p-6 h-full">
+      <div className="grid grid-cols-4 gap-6 mb-8">
+        <div className="text-center">
+          <div className="text-3xl font-bold text-blue-600">143</div>
+          <div className="text-sm text-gray-500">Total Assets</div>
+        </div>
+        <div className="text-center">
+          <div className="text-3xl font-bold text-green-600">127</div>
+          <div className="text-sm text-gray-500">Scanned Today</div>
+        </div>
+        <div className="text-center">
+          <div className="text-3xl font-bold text-yellow-600">27</div>
+          <div className="text-sm text-gray-500">Vulnerabilities</div>
+        </div>
+        <div className="text-center">
+          <div className="text-3xl font-bold text-red-600">5</div>
+          <div className="text-sm text-gray-500">Critical Issues</div>
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-3">
+            <Activity className="w-5 h-5 text-green-500" />
+            <h3 className="text-lg font-semibold">Live Vulnerability Scanning</h3>
+            <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">Active</span>
+          </div>
+          <button 
+            onClick={() => setIsScanning(!isScanning)}
+            className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50"
+          >
+            {isScanning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            {isScanning ? 'Pause Scan' : 'Resume Scan'}
+          </button>
+        </div>
+
+        <div className="mb-4">
+          <div className="flex justify-between text-sm mb-2">
+            <span>Scanning Progress</span>
+            <span>{scanProgress}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${scanProgress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-4 text-sm">
+          <div>
+            <span className="text-gray-500">Current Target</span>
+            <div className="font-mono">192.168.1.100</div>
+          </div>
+          <div>
+            <span className="text-gray-500">Protocol</span>
+            <div className="font-mono">Modbus TCP</div>
+          </div>
+          <div>
+            <span className="text-gray-500">Last Update</span>
+            <div className="font-mono">2:11:26 PM</div>
+          </div>
+          <div>
+            <span className="text-gray-500">Scan Method</span>
+            <div className="font-mono">Deep Packet Inspection</div>
+          </div>
+        </div>
+      </div>
+
+      {shodanResults.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <Database className="w-5 h-5 text-blue-500" />
+            <h3 className="text-lg font-semibold">Shodan Scan Results</h3>
+            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+              {shodanResults.length} services found
+            </span>
+          </div>
+          
+          <div className="space-y-3">
+            {shodanResults.map((result, index) => (
+              <div key={index} className="border rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                        {result.ip_str}:{result.port}
+                      </span>
+                      <span className="text-sm font-medium">{result.transport.toUpperCase()}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        result.risk_score > 8 ? 'bg-red-100 text-red-800' :
+                        result.risk_score > 5 ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        Risk: {result.risk_score}/10
+                      </span>
+                    </div>
+                    <h4 className="font-semibold text-gray-900 mb-1">{result.product} {result.version}</h4>
+                    <p className="text-sm text-gray-600 mb-2">{result.org}</p>
+                    {result.vulns && result.vulns.length > 0 && (
+                      <div className="text-xs text-red-600">
+                        Vulnerabilities: {result.vulns.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                    Investigate
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <AlertTriangle className="w-5 h-5 text-yellow-500" />
+          <h3 className="text-lg font-semibold">AI-Detected Vulnerabilities</h3>
+        </div>
+
+        <div className="flex gap-2 mb-4">
+          <button className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium">All (5)</button>
+          <button className="px-3 py-2 text-sm font-medium hover:bg-gray-100 rounded-lg">Critical (1)</button>
+          <button className="px-3 py-2 text-sm font-medium hover:bg-gray-100 rounded-lg">High (2)</button>
+          <button className="px-3 py-2 text-sm font-medium hover:bg-gray-100 rounded-lg">Medium (1)</button>
+        </div>
+
+        <div className="space-y-4">
+          {vulnerabilities.map(vuln => (
+            <div key={vuln.id} className="border rounded-lg p-4">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      vuln.severity === 'Critical' ? 'bg-red-100 text-red-800' :
+                      vuln.severity === 'High' ? 'bg-orange-100 text-orange-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {vuln.severity}
+                    </span>
+                    <span className="text-sm font-medium">Modbus TCP</span>
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                      AI Score: {vuln.aiScore}
+                    </span>
+                  </div>
+                  <h4 className="font-semibold text-gray-900 mb-1">{vuln.title}</h4>
+                  <p className="text-sm text-gray-600 mb-2">{vuln.description}</p>
+                  <div className="flex gap-4 text-xs text-gray-500">
+                    <span>Asset: {vuln.asset}</span>
+                    <span>CVE: {vuln.cve}</span>
+                    <span>Detected: {vuln.detected}</span>
+                  </div>
+                </div>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                  Investigate
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderThreatPriorities = () => (
+    <div className="bg-white rounded-lg p-6 h-full">
+      <div className="grid grid-cols-4 gap-6 mb-8">
+        <div className="text-center">
+          <div className="text-3xl font-bold text-blue-600">143</div>
+          <div className="text-sm text-gray-500">Total Assets</div>
+        </div>
+        <div className="text-center">
+          <div className="text-3xl font-bold text-green-600">127</div>
+          <div className="text-sm text-gray-500">Scanned Today</div>
+        </div>
+        <div className="text-center">
+          <div className="text-3xl font-bold text-yellow-600">27</div>
+          <div className="text-sm text-gray-500">Vulnerabilities</div>
+        </div>
+        <div className="text-center">
+          <div className="text-3xl font-bold text-red-600">5</div>
+          <div className="text-sm text-gray-500">Critical Issues</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <Shield className="w-5 h-5 text-blue-600" />
+            <h3 className="text-lg font-semibold">Mitigation Status</h3>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">3</div>
+              <div className="text-sm text-gray-500">In Progress</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">12</div>
+              <div className="text-sm text-gray-500">Completed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">8</div>
+              <div className="text-sm text-gray-500">Pending</div>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-2">
+              <span>Overall Progress</span>
+              <span>52%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-blue-600 h-2 rounded-full" style={{ width: '52%' }}></div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+              <h3 className="text-lg font-semibold">AI Priority Ranking</h3>
+            </div>
+            
+            <div className="space-y-4">
+              {threatPriorities.map(threat => (
+                <div key={threat.id} className="border-l-4 border-red-500 bg-red-50 p-4 rounded-r-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-600">Priority #{threat.id}</span>
+                      <span className="bg-red-600 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                        Risk: {threat.risk} <ChevronRight className="w-3 h-3" />
+                      </span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </div>
+                  
+                  <h4 className="font-semibold text-gray-900 mb-2">{threat.title}</h4>
+                  <p className="text-sm text-gray-600 mb-3">{threat.description}</p>
+                  
+                  <div className="grid grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span className="text-gray-500 block">Impact</span>
+                      <span className="font-medium text-red-600">{threat.impact}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block">Time to Impact</span>
+                      <span className="font-medium">{threat.timeToImpact}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block">Updated</span>
+                      <span className="font-medium">{threat.updated}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-3">
+              <Activity className="w-5 h-5 text-green-500" />
+              <h3 className="text-lg font-semibold">Live Vulnerability Scanning</h3>
+              <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">Active</span>
+            </div>
+            <button 
+              onClick={() => setIsScanning(!isScanning)}
+              className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50"
+            >
+              {isScanning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              Pause Scan
+            </button>
+          </div>
+
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-2">
+              <span>Scanning Progress</span>
+              <span>{scanProgress}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${scanProgress}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4 text-sm mb-6">
+            <div>
+              <span className="text-gray-500 block">Current Target</span>
+              <div className="font-mono">192.168.1.100</div>
+            </div>
+            <div>
+              <span className="text-gray-500 block">Protocol</span>
+              <div className="font-mono">Modbus TCP</div>
+            </div>
+            <div>
+              <span className="text-gray-500 block">Last Update</span>
+              <div className="font-mono">2:11:26 PM</div>
+            </div>
+            <div>
+              <span className="text-gray-500 block">Scan Method</span>
+              <div className="font-mono">Deep Packet Inspection</div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+              <h3 className="text-lg font-semibold">AI-Detected Vulnerabilities</h3>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              <button className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium">All (5)</button>
+              <button className="px-3 py-2 text-sm font-medium hover:bg-gray-100 rounded-lg">Critical (1)</button>
+              <button className="px-3 py-2 text-sm font-medium hover:bg-gray-100 rounded-lg">High (2)</button>
+              <button className="px-3 py-2 text-sm font-medium hover:bg-gray-100 rounded-lg">Medium (1)</button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="border rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+                        Critical
+                      </span>
+                      <span className="text-sm font-medium">Modbus TCP</span>
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                        AI Score: 9.2
+                      </span>
+                    </div>
+                    <h4 className="font-semibold text-gray-900 mb-1">Unpatched Modbus Interface</h4>
+                    <p className="text-sm text-gray-600 mb-2">Exposed Modbus interface with default credentials</p>
+                  </div>
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                    Investigate
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b px-6 py-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-xl font-semibold">CIP Dashboard</h1>
+            </div>
+            
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                <span className="font-medium">NDIA CIP System</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>System Online</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                <span>12 Bases Monitored</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                <span>Real-time Scanning</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">Tue, Aug 26, 2025, 01:51:10 PM EDT</span>
+            <button className="relative p-2 hover:bg-gray-100 rounded-lg">
+              <Bell className="w-5 h-5" />
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                <span className="text-xs text-white font-bold">5</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex">
+        <div className="w-64 bg-white border-r min-h-screen">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold mb-6">Norfolk Critical Infrastructure Protection</h2>
+            <p className="text-sm text-gray-600 mb-6">Real-time monitoring and vulnerability assessment for 12 military installations in Norfolk, VA</p>
+            
+            <nav className="space-y-2 mb-8">
+              {[
+                { icon: MapPin, label: 'Infrastructure Map', count: null },
+                { icon: Activity, label: 'Dependencies', count: 143 },
+                { icon: AlertTriangle, label: 'Vulnerabilities', count: 27 },
+                { icon: Target, label: 'Threat Priorities', count: 5 }
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => setCurrentTab(item.label)}
+                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left ${
+                    currentTab === item.label ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon className="w-4 h-4" />
+                    <span className="text-sm font-medium">{item.label}</span>
+                  </div>
+                  {item.count && (
+                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs font-medium">
+                      {item.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+
+            <div className="border-t pt-6">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">System Status</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Active Scans</span>
+                  <span className="font-medium">4</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Last Update</span>
+                  <span className="font-medium">2m ago</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Data Sources</span>
+                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">Online</span>
+                </div>
+              </div>
+            </div>
+
+            <button className="flex items-center gap-2 mt-6 p-2 w-full hover:bg-gray-50 rounded-lg">
+              <Settings className="w-4 h-4" />
+              <span className="text-sm">Settings</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 p-6">
+          <div className="mb-6">
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+              {tabs.map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setCurrentTab(tab)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    currentTab === tab 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-[calc(100vh-200px)]">
+            {currentTab === 'Infrastructure Map' && renderInfrastructureMap()}
+            {currentTab === 'Dependency Graph' && renderDependencyGraph()}
+            {currentTab === 'Vulnerability Scan' && renderVulnerabilityScanning()}
+            {currentTab === 'Threat Priorities' && renderThreatPriorities()}
+          </div>
+        </div>
+      </div>
+
+      <button className="fixed bottom-6 right-6 w-12 h-12 bg-gray-800 text-white rounded-full flex items-center justify-center hover:bg-gray-700 shadow-lg">
+        <HelpCircle className="w-6 h-6" />
+      </button>
+    </div>
+  );
+};
+
+export default NorfolkCIPDashboard;
