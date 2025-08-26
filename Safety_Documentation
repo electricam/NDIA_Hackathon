@@ -1,0 +1,221 @@
+MCP CRS Norfolk
+A production-ready MCP (Model Context Protocol) server for Norfolk infrastructure cybersecurity analysis. This tool provides automated Cyber Resilient Systems (CRS) analysis capabilities for infrastructure datasets, combining geospatial analysis with cybersecurity assessment.
+
+🎯 Features
+Infrastructure Layer Management: Import and analyze CSV/GeoJSON infrastructure data
+Dependency Graph Analysis: Build network graphs showing relationships between military bases and critical infrastructure
+Static Code Analysis: Automated security scanning with Bandit and Semgrep
+Dynamic Analysis: Fuzzing and symbolic execution capabilities
+Network Traffic Analysis: PCAP analysis for OT/ICS protocols
+Buttercup Integration: Interfaces with Trail of Bits' Buttercup CRS framework
+Risk Assessment: Automated risk scoring and remediation recommendations
+Geospatial Export: Results in CSV/GeoJSON formats for GIS integration
+🚀 Quick Start
+Prerequisites
+Python 3.11+
+Docker (optional)
+Git
+Installation
+bash
+# Clone repository
+git clone <repository-url>
+cd mcp-crs-norfolk
+
+# Install dependencies
+make install
+
+# Pull sample Norfolk data
+make sample-data
+
+# Run the server
+make run
+Docker Setup
+bash
+# Build and run with Docker Compose
+make build
+make up
+🛠️ Usage
+MCP Tool Examples
+Import Infrastructure Data:
+
+json
+{
+  "tool": "import_layer_csv",
+  "args": {
+    "source_url": "https://example.com/norfolk-bases.csv",
+    "layer_name": "military_bases",
+    "bbox": [-76.8, 36.6, -76.0, 37.2]
+  }
+}
+Build Dependency Graph:
+
+json
+{
+  "tool": "build_dependency_graph",
+  "args": {
+    "bases_csv": "data/layers/bases.csv",
+    "power_csv": "data/layers/transmission_lines.csv",
+    "water_csv": "data/layers/wastewater_plants.csv",
+    "radius_km": 10
+  }
+}
+Run CRS Analysis:
+
+json
+{
+  "tool": "buttercup_task",
+  "args": {
+    "repo_url": "https://github.com/example/test-target",
+    "timeout_s": 7200
+  }
+}
+Risk Assessment:
+
+json
+{
+  "tool": "risk_score_assets",
+  "args": {
+    "graph_path": "data/graphs/dependencies.parquet",
+    "findings": [
+      "data/findings/static_analysis.json",
+      "data/findings/fuzz_results.json"
+    ]
+  }
+}
+📁 Project Structure
+mcp-crs-norfolk/
+├── mcp_server/
+│   ├── __init__.py
+│   ├── server.py              # Main MCP server
+│   ├── tools/                 # Tool implementations
+│   │   ├── import_layer_csv.py
+│   │   ├── build_dependency_graph.py
+│   │   ├── buttercup_adapter.py
+│   │   └── ...
+│   └── util/                  # Utilities
+│       ├── geo.py
+│       ├── io.py
+│       ├── logging.py
+│       └── security.py
+├── data/                      # Data storage (gitignored)
+├── exports/                   # Export outputs (gitignored)
+├── scripts/
+│   └── pull_samples.py        # Sample data script
+├── tests/                     # Test suite
+├── Dockerfile
+├── docker-compose.yml
+├── pyproject.toml
+├── Makefile
+├── README.md
+├── SAFE_USE.md
+└── CODE_OF_CONDUCT.md
+🧪 Testing
+bash
+# Run unit tests
+make test
+
+# Run integration test with sample data
+make integration-test
+
+# Format code
+make fmt
+📊 Output Examples
+Risk Assessment CSV
+csv
+asset_id,asset_type,asset_name,risk_score,criticality,recommended_actions
+base_0,base,Naval Station Norfolk,85.2,0.95,"IMMEDIATE: Conduct security assessment"
+power_1,power,Norfolk Substation,72.1,0.88,"HIGH: Apply security patches"
+GeoJSON Map Layers
+json
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Naval Station Norfolk",
+        "risk_score": 85.2,
+        "type": "naval_base"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-76.3284, 36.9467]
+      }
+    }
+  ]
+}
+🔒 Security & Ethics
+CRITICAL: This tool is designed for authorized security assessments only.
+
+Approved Use Cases
+Analysis of user-uploaded test data
+Evaluation of open-source software
+Assessment of synthetic/replicated test environments
+Research on approved public datasets
+Prohibited Activities
+Scanning live production infrastructure
+Unauthorized penetration testing
+Analysis of systems without explicit permission
+Any activity violating local, state, or federal laws
+Safety Features
+URL allowlist enforcement
+File type validation
+Audit logging of all operations
+No live network scanning capabilities
+Containerized execution environment
+See SAFE_USE.md for detailed guidelines.
+
+🤝 Contributing
+Read CODE_OF_CONDUCT.md
+Fork the repository
+Create a feature branch
+Add tests for new functionality
+Submit a pull request
+📋 Requirements
+System Dependencies
+Python 3.11+
+Git
+Make
+Docker (optional)
+Wireshark/tshark (for PCAP analysis)
+Python Dependencies
+mcp (Model Context Protocol SDK)
+pandas, geopandas (data processing)
+networkx (graph analysis)
+bandit, semgrep (static analysis)
+angr, atheris (dynamic analysis)
+pyshark (network analysis)
+apscheduler (job scheduling)
+🔧 Configuration
+Environment Variables
+MCP_CRS_ENV: Set to "production" for production use
+PYTHONPATH: Should include the project root
+Default Settings
+Hampton Roads bounding box: [-76.8, 36.6, -76.0, 37.2]
+Maximum analysis timeout: 2 hours
+Audit logging enabled by default
+📞 Support
+For issues related to:
+
+Setup/Installation: Check the troubleshooting section
+Security Concerns: Review SAFE_USE.md
+Feature Requests: Open a GitHub issue
+Buttercup Integration: Refer to Trail of Bits documentation
+🏗️ Buttercup Integration
+This server can integrate with Trail of Bits' Buttercup CRS framework:
+
+Setup Buttercup:
+bash
+git clone https://github.com/trailofbits/buttercup
+cd buttercup
+make setup-local
+make deploy-local
+Verify Integration:
+bash
+make status  # Should show "healthy"
+Test with Example:
+bash
+make send-libpng-task
+make web-ui  # View results
+When Buttercup is unavailable, the server automatically falls back
+
